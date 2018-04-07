@@ -1,0 +1,10 @@
+module instruction_mem1 (input reg[31:0] pc, output [31:0] instruction);
+	reg [31:0] mem [0:1023];
+	
+initial begin
+		$readmemb("path_of_file", mem ); 
+		
+	end
+
+	assign instruction = mem[pc >> 2];
+endmodule
