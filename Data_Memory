@@ -1,0 +1,19 @@
+module Data_Mem (input clk , input write , input read , input [31:0] output_from_alu , input [31:0]write_data , output reg [31:0] output_data );
+	
+  reg [31:0] memory [0:255];
+
+initial begin 
+memory[0] = 32'b00000000000000000000000000000011 ;
+end
+
+always @ (posedge clk)
+	begin
+		if(write)
+			memory[output_from_alu] <= write_data;
+		if (read)
+			output_data <= memory[output_from_alu] ;
+
+	end
+
+
+endmodule
