@@ -1,0 +1,41 @@
+module Main_Control_Unit(input reg[5:0] opcode , input hazard_control ,output reg RegDst,output reg ALUSrc,output reg MemToReg,output reg RegWrite,output reg MemRead,output reg MemWrite,output reg Branch,output reg AluOp1,output reg AluOp0,output reg Jump);
+parameter R_format=6'b0, Lw=35, Sw=43, Beq=4 ,Jump_op=2;
+
+always @(opcode or hazard_control)
+  begin
+    if (hazard_control == 1 )
+    begin
+      case(opcode)
+      6'b0    : 
+                begin
+          RegDst = 1 ; ALUSrc = 0 ; MemToReg = 1 ; RegWrite = 1 ; MemRead = 0 ; MemWrite = 0 ; Branch = 0 ; AluOp1 = 1 ; AluOp0 = 0 ; Jump = 0 ;
+          end
+      Lw      : 
+          begin
+          RegDst = 0 ; ALUSrc = 1 ; MemToReg = 1 ; RegWrite = 1 ; MemRead = 1 ; MemWrite = 0 ; Branch = 0 ; AluOp1 = 0 ; AluOp0 = 0 ; Jump = 0 ;
+
+          end
+      Sw      : 
+          begin
+          RegDst = 0 ; ALUSrc = 1 ; MemToReg = 0 ; RegWrite = 0 ; MemRead = 0 ; MemWrite = 1 ; Branch = 0 ; AluOp1 = 1 ; AluOp0 = 0 ; Jump = 0 ;
+          end
+      Beq     : 
+            begin
+          RegDst = 0 ; ALUSrc = 0 ; MemToReg = 0 ; RegWrite = 0 ; MemRead = 0 ; MemWrite = 0 ; Branch = 1 ; AluOp1 = 0 ; AluOp0 = 1 ; Jump = 0 ;
+            end
+      endcase
+    end
+
+    else if (hazard_control == 0)
+      begin
+
+          RegDst = 1'bx ; ALUSrc = 1'bx ; MemToReg = 1'bx ; RegWrite = 1'bx; MemRead = 1'bx ; MemWrite = 1'bx ; Branch = 1'bx ; AluOp1 = 1'bx ; AluOp0 = 1'bx; Jump = 1'bx ;
+       end 
+
+//Jump_op    : {RegDst,ALUSrc,MemToReg,RegWrite,MemRead,MemWrite,Branch,AluOp1, AluOp0,Jump}=0000000001;
+
+
+
+end
+
+endmodule
