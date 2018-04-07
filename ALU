@@ -1,0 +1,51 @@
+module compare (input [31:0] a ,input [31:0] b , output [1:0]compareresult);
+//compareresult = 1 if a > b ,, = 2 if a < b ,, = 0 if a = b 
+assign compareresult = ($signed (a)>$signed (b))?2'b01 : ($signed (a)<$signed (b))?2'b10 :2'b00;
+endmodule
+
+module ALU(output reg  [31:0]  AluOutput, output reg ZeroFlag,output reg of,input mode , input AluOp1, input AluOp0, input [5:0]funct, input [4:0]shamt, input signed [31:0] in1, input signed[31:0] in2);
+  
+    parameter add_funct=32, sub_funct=34, and_funct=36, or_funct=37, sll_funct=0;
+    wire [1:0] compareresult ;
+    wire [31:0] in2_neg ;
+    assign in2_neg = - in2 ; 
+    compare pc (in1 ,in2 , compareresult);
+
+always @( in1 or in2 or AluOp1 or AluOp0 or funct )
+begin
+  assign ZeroFlag=0;
+  if (AluOp0==0 && AluOp1==0)		//for loads and stores
+    begin
+	
+	    assign AluOutput = in1 + in2;
+    end
+else if(AluOp0==1 && AluOp1==0)		//for beq
+begin
+    assign AluOutput = in1-in2;
+    if ((in1-in2)== 0)
+      assign ZeroFlag = 1;
+end
+
+else if(AluOp0==0&&AluOp1==1)		//fot R-format
+begin
+    case(funct)
+    32: assign AluOutput = in1 + in2;
+    34: assign AluOutput = in1 - in2;
+    36: assign AluOutput = in1 & in2;
+    37 : assign AluOutput = in1 | in2;
+    0: 
+        begin 
+
+            assign AluOutput = (in1<<shamt);
+        end
+        //default: assign AluOutput = 32'b0; 
+ endcase
+  assign of = (funct == add_funct && mode == 1'b1 && in1[31]==in2[31] && AluOutput[31] == ~in1[31])? 1'b1 :
+      (funct == sub_funct && mode == 1'b1 && in1[31]==in2_neg[31] && AluOutput[31] == ~in1[31])? 1'b1 : 1'b0 ;
+  end
+
+else
+	assign AluOutput=32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
+end
+
+endmodule
