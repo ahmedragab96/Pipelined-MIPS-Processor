@@ -1,0 +1,21 @@
+module Hazard(input clk , input [4:0] rs ,input [4:0] rt ,input [4:0] ex_rt ,input IDEX_Read , output reg pc_write , output reg IFID_write , output reg control ); 
+    
+initial begin 
+ 	   pc_write = 1; 
+           IFID_write = 1; 
+           control = 1; 
+end
+    always@(posedge clk ) 
+    if(IDEX_Read && ((ex_rt == rs)||(ex_rt == rt))) 
+       begin //stall 
+           pc_write = 0; 
+           IFID_write = 0; 
+           control = 0; 
+       end 
+    else 
+       begin //no stall 
+           pc_write = 1; 
+           IFID_write = 1; 
+           control = 1; 
+       end 
+endmodule 
