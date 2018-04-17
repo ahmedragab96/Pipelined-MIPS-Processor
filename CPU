@@ -1,0 +1,201 @@
+module CPU ();
+       reg clk=0;
+always
+begin
+#2 clk = ~clk;
+end
+
+ 
+//////////////////////////////////////////////////////PIPELINED CODE /////////////////////////////////////////////////////////////
+reg [31:0] pc_current ; reg [31:0] pc_plus_four , pc_branch , pc_jump; reg [31:0] pc_next ;
+	wire [31:0] instruction  ; //= 32'b00000010010100111000100000100000;
+wire RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, Branch, AluOp1, AluOp0, Jump;
+reg [31:0]IFID_INST,IFID_PC;
+ wire [31:0] read1 , read2 ; wire [31:0] write_data_to_register_file ;
+reg RegDst_IDEX,ALUSrc_IDEX,MemToReg_IDEX,RegWrite_IDEX,MemRead_IDEX,MemWrite_IDEX,Branch_IDEX,AluOp1_IDEX,AluOp0_IDEX,Jump_IDEX;
+	reg  [5:0]  opcode;
+	reg  [4:0]  rs;
+	reg  [4:0]  rt;
+	reg  [4:0]  rd;
+	reg  [4:0]  rt_IDEX;
+	reg  [4:0]  rd_IDEX;
+	reg  [4:0]  rs_IDEX;
+	wire [4:0]  destination ;
+	reg  [15:0] imm;
+	reg  [4:0]  shamt;
+	reg  [5:0]  funct ;
+	reg  [5:0] IDEX_funct;
+	reg  [5:0] EX_funct;
+	reg  [31:0] sign_extend;
+	reg  [31:0] IDEX_sign_extend;
+	reg  [31:0] IDEX_sign_extend1;
+	wire signed [31:0] ALU_input2 ;
+	wire pc_write , IFID_write , control ;
+	reg [31:0]IDEX_INST,IDEX_PC,IDEX_RS,IDEX_RT;
+reg [31:0]EXMEM_INST,EXMEM_PC,EXMEM_ALU_RESULT;
+reg [4:0] EXMEM_destination ;
+reg Branch_selector ;
+reg RegDst_EXMEM,ALUSrc_EXMEM,MemToReg_EXMEM,RegWrite_EXMEM,MemRead_EXMEM,MemWrite_EXMEM,Branch_EXMEM,AluOp1_EXMEM,AluOp0_EXMEM,Jump_EXMEM;
+wire signed [31:0] AluOutput ; wire ZeroFlag , of , mode ;
+reg [31:0]MEMWB_INST,MEMWB_DATA,MEMWB_ALU_RESULT;
+reg [4:0] MEMWB_destination ;
+wire [31:0] output_data_from_memory ;
+reg [31:0] MEMWB_output_data_from_memory ;
+wire signed[31:0] muxOut1 , muxOut2 ;
+wire [1:0] ForwardA , ForwardB ;
+wire [31:0] output_from_comparator;
+reg RegDst_MEMWB,ALUSrc_MEMWB,MemToReg_MEMWB,RegWrite_MEMWB,MemRead_MEMWB,MemWrite_MEMWB,Branch_MEMWB,AluOp1_MEMWB,AluOp0_MEMWB,Jump_MEMWB;
+	initial 
+		begin 
+		$monitor("At PC =%d --> input1 = %d  ,,  input2 = %d  -> AluOutput = %d  ////  RegDst = %b , ALUSrc = %b , MemToReg = %b , RegWrite = %b , MemRead = %b , MemWrite = %b , Branch = %b , AluOp1= %b , AluOp0 = %b , Jump = %b" ,pc_current ,muxOut1 ,ALU_input2 ,AluOutput,RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, Branch, AluOp1, AluOp0, Jump);
+		pc_current = 32'b0;
+		
+		end
+	always @(Branch_selector or pc_plus_four )
+ 		begin
+		if  ( pc_write == 1  )
+			begin
+	 		if (Branch_selector == 1)
+	 			pc_current <= pc_branch ;
+		 	else 
+	        		pc_current <= pc_plus_four ;
+			end
+		else begin
+			$display("stalling");
+			pc_current <= pc_current; 
+		end end
+instruction_mem1 inst( pc_current , instruction );   
+Main_Control_Unit control_unit(opcode ,control ,RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, Branch, AluOp1, AluOp0, Jump);
+reg_file1 _reg ( clk , RegWrite_MEMWB , rs , rt , MEMWB_destination ,  write_data_to_register_file , read1 , read2);
+Hazard h1( clk , rs , rt , rt_IDEX , MemRead_IDEX , pc_write , IFID_write , control );
+comparator c1 (read1 , read2 ,output_from_comparator);
+two_one_mux_for_5_bit destination_register_mux ( rt_IDEX , rd_IDEX , destination , RegDst_IDEX );
+two_one_mux_for_32_bit regfile_alu_mux ( muxOut2 , IDEX_sign_extend , ALU_input2 , ALUSrc_IDEX );
+ALU unit ( AluOutput , ZeroFlag , of , mode ,  AluOp1_IDEX , AluOp0_IDEX , EX_funct , shamt , muxOut1 , ALU_input2 );
+Data_Mem DM( clk , MemWrite_EXMEM , MemRead_EXMEM ,  AluOutput , read2 , output_data_from_memory );
+two_one_mux_for_32_bit Write_back_mux ( MEMWB_output_data_from_memory , MEMWB_ALU_RESULT , write_data_to_register_file , MemToReg_MEMWB );
+ForwardUnit forward (clk , EXMEM_destination , MEMWB_destination , rs_IDEX , rt_IDEX , RegWrite_EXMEM, RegWrite_MEMWB, ForwardA , ForwardB);
+three_to_one_mux muxA(  ForwardA ,  IDEX_RS ,  MEMWB_DATA ,  EXMEM_ALU_RESULT , 0 ,  muxOut1 );
+three_to_one_mux muxB( ForwardB ,  IDEX_RT  , MEMWB_DATA ,  EXMEM_ALU_RESULT , 0 ,  muxOut2 ); 
+
+
+
+
+always @(posedge clk)
+begin
+	
+$display("%0t",$time);
+        //pc_current <= pc_next ;
+	 pc_plus_four <= pc_current+4 ;
+
+
+                                       ////////Fetching///////////////////
+if (IFID_write)
+	begin
+		IFID_INST=instruction;
+		IFID_PC=pc_plus_four;
+	end
+else begin
+		IFID_INST=IFID_INST;
+		IFID_PC=IFID_PC;
+end
+					////////////////Decode////////////////////
+	 opcode   <= IFID_INST[31:26];
+	 rs       <= IFID_INST[25:21];
+	 rt       <= IFID_INST[20:16];
+	 rd       <= IFID_INST[15:11];
+	 imm      <= IFID_INST[15:0];
+	 shamt    <= IFID_INST[10:6];
+	 funct    <= IFID_INST[5:0];
+	sign_extend<= {{16{IFID_INST[15]}}, IFID_INST[15:0]};
+
+	
+	
+	 
+	
+	IDEX_INST<=IFID_INST;
+	IDEX_PC<=IFID_PC;
+	IDEX_RS<= read1;
+	IDEX_RT<= read2;
+	IDEX_funct <= funct;
+	IDEX_sign_extend <= sign_extend ;
+
+
+				////////////////Execute////////////////////
+	rs_IDEX <= rs ;
+	rt_IDEX <= rt;
+	rd_IDEX = rd;
+	EX_funct<= IDEX_funct;
+
+	RegDst_IDEX  <=RegDst;
+	ALUSrc_IDEX  <=ALUSrc;
+	MemToReg_IDEX<=MemToReg;
+	RegWrite_IDEX<=RegWrite;
+	MemRead_IDEX <=MemRead;
+	MemWrite_IDEX<=MemWrite;
+	Branch_IDEX  <=Branch;
+	AluOp1_IDEX  <=AluOp1;
+	AluOp0_IDEX  <=AluOp0;
+	Jump_IDEX    <=Jump;
+
+	
+	EXMEM_INST<=IDEX_INST;
+	EXMEM_PC<=IDEX_PC;
+	EXMEM_destination <= destination ;
+
+	
+	EXMEM_ALU_RESULT<=AluOutput;
+	//IDEX_sign_extend1 <= IDEX_sign_extend ;
+	if(output_from_comparator == 32'd0 && Branch )
+
+	 Branch_selector = 1 ;
+	
+
+	else
+	 Branch_selector = 0 ;
+pc_branch = IFID_PC + (sign_extend << 2 );
+	 
+
+				////////////////MEMory////////////////////
+	RegDst_EXMEM  <=RegDst_IDEX;
+	ALUSrc_EXMEM  <=ALUSrc_IDEX;
+	MemToReg_EXMEM<=MemToReg_IDEX;
+	RegWrite_EXMEM<=RegWrite_IDEX;
+	MemRead_EXMEM <=MemRead_IDEX;
+	MemWrite_EXMEM<=MemWrite_IDEX;
+	Branch_EXMEM  <=Branch_IDEX;
+	AluOp1_EXMEM  <=AluOp1_IDEX;
+	AluOp0_EXMEM  <=AluOp0_IDEX;
+	Jump_EXMEM    <=Jump_IDEX;
+
+	
+	MEMWB_INST<=EXMEM_INST;
+	MEMWB_ALU_RESULT<=EXMEM_ALU_RESULT;
+	
+
+
+	
+	MEMWB_DATA<=output_data_from_memory;
+				////////////////WriteBack////////////////////
+	MEMWB_destination <= EXMEM_destination;
+	MEMWB_output_data_from_memory <= output_data_from_memory ;
+	RegDst_MEMWB  <=RegDst_EXMEM;
+	ALUSrc_MEMWB  <=ALUSrc_EXMEM;
+	MemToReg_MEMWB<=MemToReg_EXMEM;
+	RegWrite_MEMWB<=RegWrite_EXMEM;
+	MemRead_MEMWB <=MemRead_EXMEM;
+	MemWrite_MEMWB<=MemWrite_EXMEM;
+	Branch_MEMWB  <=Branch_EXMEM;
+	AluOp1_MEMWB  <=AluOp1_EXMEM;
+	AluOp0_MEMWB  <=AluOp0_EXMEM;
+	Jump_MEMWB    <=Jump_EXMEM;
+
+
+
+
+
+
+
+end
+
+ endmodule
