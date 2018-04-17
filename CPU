@@ -64,18 +64,33 @@ reg RegDst_MEMWB,ALUSrc_MEMWB,MemToReg_MEMWB,RegWrite_MEMWB,MemRead_MEMWB,MemWri
 			$display("stalling");
 			pc_current <= pc_current; 
 		end end
+		
+	//instances from all the modules	
+	
 instruction_mem1 inst( pc_current , instruction );   
+
 Main_Control_Unit control_unit(opcode ,control ,RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, Branch, AluOp1, AluOp0, Jump);
+
 reg_file1 _reg ( clk , RegWrite_MEMWB , rs , rt , MEMWB_destination ,  write_data_to_register_file , read1 , read2);
+
 Hazard h1( clk , rs , rt , rt_IDEX , MemRead_IDEX , pc_write , IFID_write , control );
+
 comparator c1 (read1 , read2 ,output_from_comparator);
+
 two_one_mux_for_5_bit destination_register_mux ( rt_IDEX , rd_IDEX , destination , RegDst_IDEX );
+
 two_one_mux_for_32_bit regfile_alu_mux ( muxOut2 , IDEX_sign_extend , ALU_input2 , ALUSrc_IDEX );
+
 ALU unit ( AluOutput , ZeroFlag , of , mode ,  AluOp1_IDEX , AluOp0_IDEX , EX_funct , shamt , muxOut1 , ALU_input2 );
+
 Data_Mem DM( clk , MemWrite_EXMEM , MemRead_EXMEM ,  AluOutput , read2 , output_data_from_memory );
+
 two_one_mux_for_32_bit Write_back_mux ( MEMWB_output_data_from_memory , MEMWB_ALU_RESULT , write_data_to_register_file , MemToReg_MEMWB );
+
 ForwardUnit forward (clk , EXMEM_destination , MEMWB_destination , rs_IDEX , rt_IDEX , RegWrite_EXMEM, RegWrite_MEMWB, ForwardA , ForwardB);
+
 three_to_one_mux muxA(  ForwardA ,  IDEX_RS ,  MEMWB_DATA ,  EXMEM_ALU_RESULT , 0 ,  muxOut1 );
+
 three_to_one_mux muxB( ForwardB ,  IDEX_RT  , MEMWB_DATA ,  EXMEM_ALU_RESULT , 0 ,  muxOut2 ); 
 
 
